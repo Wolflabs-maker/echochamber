@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WOLF LABS // Echo Chamber Diagnostic</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --spotify-green: #1DB954;
+            --bg-dark: #050505;
+            --bg-panel: #121212;
+            --grey-text: #b3b3b3;
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: var(--bg-dark);
+            color: #ffffff;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-image: 
+                radial-gradient(circle at 5% 5%, rgba(29, 185, 84, 0.08) 0%, transparent 40%),
+                linear-gradient(rgba(255, 255, 255, 0.01) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.01) 1px, transparent 1px);
+            background-size: 100% 100%, 40px 40px, 40px 40px;
+        }
+
+        .tech-font { font-family: 'JetBrains Mono', monospace; }
+        .green-glow { color: var(--spotify-green); text-shadow: 0 0 15px rgba(29, 185, 84, 0.5); }
+
+        /* HUD PANELS */
+        .hud-panel {
+            background: var(--bg-panel);
+            border: 1px solid rgba(29, 185, 84, 0.2);
+            position: relative;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.9);
+            border-radius: 4px;
+        }
+
+        .hud-corner {
+            position: absolute; width: 15px; height: 15px; border-color: var(--spotify-green); border-style: solid;
+        }
+        .hud-corner.tl { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+        .hud-corner.tr { top: -1px; right: -1px; border-width: 2px 2px 0 0; }
+        .hud-corner.bl { bottom: -1px; left: -1px; border-width: 0 0 2px 2px; }
+        .hud-corner.br { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+
+        /* INTERACTION */
+        .choice-btn {
+            background: #1a1a1a;
+            border: 1px solid transparent;
+            color: var(--grey-text);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer; padding: 18px; border-radius: 4px;
+            text-align: left; font-weight: 600;
+        }
+        .choice-btn:hover:not(.disabled) { background: #222; color: white; transform: translateY(-2px); }
+        .choice-btn.selected { border-color: var(--spotify-green); background: rgba(29, 185, 84, 0.1); color: white; }
+
+        .bug-word {
+            display: inline-block;
+            padding: 2px 8px;
+            margin: 0 2px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        .bug-word:hover { background: rgba(255,255,255,0.1); }
+        .bug-word.selected { border-color: #ef4444; background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+
+        .link-node {
+            background: #1a1a1a;
+            border: 1px solid rgba(255,255,255,0.05);
+            padding: 12px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 0.85rem;
+            color: var(--grey-text);
+        }
+        .link-node.selected { border-color: var(--spotify-green); background: rgba(29, 185, 84, 0.1); color: white; }
+
+        /* SUCCESS ANIMATIONS */
+        @keyframes success-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(29, 185, 84, 0.8); }
+            100% { box-shadow: 0 0 0 50px rgba(29, 185, 84, 0); }
+        }
+        .sync-active { animation: success-pulse 0.6s ease-out; border-color: var(--spotify-green) !important; }
+
+        .progress-fill { background: var(--spotify-green); height: 100%; transition: width 0.6s ease; box-shadow: 0 0 10px var(--spotify-green); }
+
+        .hide { display: none !important; }
+        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .scanner {
+            position: fixed; top: 0; left: 0; width: 100%; height: 2px;
+            background: rgba(29, 185, 84, 0.3); animation: scan 8s linear infinite;
+            pointer-events: none; z-index: 100;
+        }
+        @keyframes scan { 0% { top: 0; } 100% { top: 100vh; } }
+
+        .speaking-starter {
+            background: rgba(29, 185, 84, 0.05);
+            border-left: 3px solid var(--spotify-green);
+            padding: 15px 20px;
+            margin-top: 20px;
+            border-radius: 0 8px 8px 0;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="scanner"></div>
+
+    <!-- HEADER -->
+    <header class="max-w-6xl mx-auto w-full flex justify-between items-center mb-10 border-b border-white/5 pb-6 relative z-10">
+        <div>
+            <h1 class="text-2xl font-black italic uppercase tracking-tighter">WOLF <span class="green-glow">LABS</span></h1>
+            <p class="text-[0.6rem] tech-font text-gray-500 uppercase tracking-[0.4em]">Node: Echo Chamber // B1 Passive Voice</p>
+        </div>
+        <div class="text-right">
+            <div class="text-[0.55rem] tech-font text-gray-500 uppercase tracking-widest mb-1">STT Efficiency</div>
+            <div class="text-lg font-bold tech-font green-glow" id="accuracy-display">0%</div>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto w-full flex-grow flex flex-col relative z-10">
+        
+        <!-- TABS -->
+        <div class="flex gap-4 mb-8 overflow-x-auto pb-2 scrollbar-hide">
+            <button onclick="changeNode('lab')" id="tab-lab" class="bg-white/5 border border-white/10 px-8 py-3 rounded-full text-[0.65rem] tech-font uppercase tracking-widest hover:bg-white/10 transition">01. Interaction Lab</button>
+            <button onclick="changeNode('dilemma')" id="tab-dilemma" class="bg-white/5 border border-white/10 px-8 py-3 rounded-full text-[0.65rem] tech-font uppercase tracking-widest hover:bg-white/10 transition">02. Ethics & Dilemmas</button>
+            <button onclick="changeNode('vault')" id="tab-vault" class="bg-white/5 border border-white/10 px-8 py-3 rounded-full text-[0.65rem] tech-font uppercase tracking-widest hover:bg-white/10 transition">03. Discussion Vault</button>
+        </div>
+
+        <!-- SECTION: LAB -->
+        <div id="section-lab" class="hud-panel p-8 md:p-14 fade-in">
+            <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
+            <div class="hud-corner bl"></div><div class="hud-corner br"></div>
+
+            <div class="flex justify-between items-end mb-6">
+                <div class="text-[0.7rem] tech-font green-glow uppercase tracking-[0.2em]" id="ex-counter">EXERCISE 01/20</div>
+                <div class="text-[0.6rem] tech-font text-gray-500 uppercase tracking-widest" id="ex-mode">MODE: LOADING...</div>
+            </div>
+
+            <div class="w-full h-1 bg-white/5 mb-12 rounded-full overflow-hidden">
+                <div id="progress-bar" class="progress-fill" style="width: 5%"></div>
+            </div>
+
+            <div id="lab-container" class="min-h-[350px] flex flex-col justify-center items-center relative">
+                <div id="success-overlay" class="hide absolute inset-0 flex items-center justify-center bg-[#1DB954]/5 z-20 pointer-events-none">
+                    <div class="bg-[#1DB954] text-black font-black py-4 px-12 rounded-full pop-animation">
+                        NODE SYNCED!
+                    </div>
+                </div>
+                <div id="lab-content" class="w-full text-center"></div>
+            </div>
+
+            <div class="mt-10 flex flex-col md:flex-row justify-between items-center gap-6 border-t border-white/5 pt-10">
+                <div id="undo-hint" class="text-[0.65rem] tech-font text-gray-600 uppercase italic opacity-0">
+                    * Click again to undo or modify node
+                </div>
+                <div class="flex gap-4">
+                    <button id="verify-btn" class="hide bg-[#1DB954] text-black font-black py-4 px-14 rounded-full uppercase text-xs tracking-widest hover:scale-105 transition-all shadow-[0_0_25px_rgba(29,185,84,0.4)]">Verify System</button>
+                    <button id="next-btn" onclick="nextExercise()" class="hide bg-white/5 border border-white/20 text-white font-bold py-4 px-12 rounded-full uppercase text-xs tracking-widest hover:bg-white/15 transition">Next Cycle ></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION: DILEMMA -->
+        <div id="section-dilemma" class="hide hud-panel p-8 md:p-14 fade-in">
+            <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
+            <div class="hud-corner bl"></div><div class="hud-corner br"></div>
+            <div id="dilemma-list" class="space-y-12 max-w-2xl mx-auto"></div>
+        </div>
+
+        <!-- SECTION: VAULT -->
+        <div id="section-vault" class="hide hud-panel p-8 md:p-14 fade-in">
+            <div id="vault-list" class="space-y-6 max-w-2xl mx-auto"></div>
+        </div>
+
+    </main>
+
+    <footer class="max-w-6xl mx-auto w-full text-center mt-12 pt-8 border-t border-white/5 opacity-40">
+        <p class="text-[0.6rem] tech-font uppercase tracking-[0.6em]">Wolf Labs // Echo Chamber Diagnostic</p>
+    </footer>
+
+    <script>
+        // DATASET RANDOMIZED (Distribuição variada das respostas corretas)
+        const exercises = [
+            { id: 1, type: 'link', q: "Connect to form the Passive Voice:", nodes: [["Data"], ["are", "is"], ["collects", "collected"]], a: ["Data", "is", "collected"] },
+            { id: 2, type: 'hunt', q: "Find the error (BUG) in the code:", sentence: ["Opinions", "is", "filtered", "by", "algorithms."], a: 1 }, 
+            { id: 3, type: 'choice', q: "Convert Active to Passive: <br><span class='green-glow'>'Algorithms track your movements.'</span>", options: ["Algorithms are tracked by movements.", "Your movements is tracked by algorithms.", "Your movements are tracked by algorithms."], a: 2 },
+            { id: 4, type: 'link', q: "Connect the Past Passive node:", nodes: [["installed", "installing"], ["was", "were"], ["The app"]], a: ["The app", "was", "installed"] },
+            { id: 5, type: 'hunt', q: "Find the BUG (Participle mismatch):", sentence: ["Personal", "data", "are", "sell", "to", "companies."], a: 3 }, 
+            { id: 6, type: 'choice', q: "What is done to your preferences?", options: ["They were analyzed.", "They are analyzed.", "They analyzes."], a: 1 },
+            { id: 7, type: 'link', q: "Connect the plural node:", nodes: [["Preferences"], ["saved", "save"], ["is", "are"]], a: ["Preferences", "are", "saved"] },
+            { id: 8, type: 'hunt', q: "Find the BUG:", sentence: ["The", "news", "was", "shared", "thousands", "of", "time."], a: 6 }, 
+            { id: 9, type: 'choice', q: "Active to Passive: <br><span class='green-glow'>'Hackers stole the database.'</span>", options: ["The database were stolen.", "The database was stolen.", "The database is stolen."], a: 1 },
+            { id: 10, type: 'link', q: "Connect the passive question:", nodes: [["Was"], ["violated?"], ["privacy", "privacies"], ["your", "the"]], a: ["Was", "your", "privacy", "violated?"] },
+            { id: 11, type: 'hunt', q: "Find the BUG (Missing Auxiliary):", sentence: ["A", "filter", "bubble", "created", "around", "you."], a: 3 }, 
+            { id: 12, type: 'choice', q: "How are we influenced?", options: ["Algorithms trapped us.", "We were trapped yesterday.", "We are trapped in echo chambers."], a: 2 },
+            { id: 13, type: 'link', q: "Sincronize the node:", nodes: [["is", "are"], ["targeted", "targets"], ["Emotions"]], a: ["Emotions", "are", "targeted"] },
+            { id: 14, type: 'hunt', q: "Find the BUG (Wrong Auxiliary):", sentence: ["Information", "were", "hidden", "from", "your", "feed."], a: 1 }, 
+            { id: 15, type: 'choice', q: "Passive past check:", options: ["The video were deleted.", "The video is delete.", "The video was deleted."], a: 2 },
+            { id: 16, type: 'link', q: "Build the 'By' phrase:", nodes: [["ranked"], ["Results"], ["by", "with"], ["are"], ["relevance"]], a: ["Results", "are", "ranked", "by", "relevance"] },
+            { id: 17, type: 'hunt', q: "Find the BUG (Verb form):", sentence: ["Users", "are", "encourage", "to", "stay", "online."], a: 2 }, 
+            { id: 18, type: 'choice', q: "Identify the passive form:", options: ["Content is suggested.", "Apps suggests content.", "We suggest apps."], a: 0 },
+            { id: 19, type: 'link', q: "Connect the 'Not' node:", nodes: [["not"], ["challenged", "challenge"], ["Opinions"], ["are", "is"]], a: ["Opinions", "are", "not", "challenged"] },
+            { id: 20, type: 'hunt', q: "Find the BUG:", sentence: ["This", "system", "was", "invent", "in", "2010."], a: 3 }
+        ];
+
+        const dilemmas = [
+            { title: "ALGORITHMIC CONTROL", q: "Would you rather have a feed that is 100% controlled by an AI (perfect content) OR a feed that is 100% random (discovery but messy)?", starters: ["I would rather have a feed that is... because...", "In my opinion, AI control is..."] },
+            { title: "THE RIGHT TO BE FORGOTTEN", q: "Should our personal data be deleted automatically after 5 years, or should it be kept forever for history?", starters: ["I strongly believe data should be...", "From my perspective, if data is kept..."] },
+            { title: "ECHO CHAMBER RESPONSIBILITY", q: "If someone is radicalized in an echo chamber, is the person responsible or is the algorithm responsible?", starters: ["I think the person is responsible since...", "Actually, the algorithm should be..."] }
+        ];
+
+        const vaultQuestions = [
+            { q: "Is your world view manipulated by your phone?", s: "I think my world view is..." },
+            { q: "What data is being sold about you right now?", s: "I believe that my... is being sold." },
+            { q: "Have you ever been trapped in a filter bubble?", s: "Yes, I realized I was trapped when..." },
+            { q: "Should fake news be censored by the platform?", s: "In my view, fake news should..." },
+            { q: "Was your life better before social media?", s: "Actually, my life was..." },
+            { q: "How are cookies used on your browser?", s: "Cookies are used to..." },
+            { q: "Is privacy being lost in the digital age?", s: "I feel that privacy is..." },
+            { q: "What is the most dangerous thing about algorithms?", s: "The most dangerous thing is that..." },
+            { q: "Would you pay for social media to have no ads?", s: "I would definitely..." },
+            { q: "Is your time being wasted by infinite scroll?", s: "To be honest, my time is..." }
+        ];
+
+        let currentIdx = 0;
+        let score = 0;
+        let selectedIndices = [];
+        let selectedBug = null;
+        let selectedChoice = null;
+
+        const labContent = document.getElementById('lab-content');
+        const verifyBtn = document.getElementById('verify-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const progressBar = document.getElementById('progress-bar');
+        const exCounter = document.getElementById('ex-counter');
+        const exModeText = document.getElementById('ex-mode');
+        const accuracyText = document.getElementById('accuracy-display');
+        const undoHint = document.getElementById('undo-hint');
+        const successOverlay = document.getElementById('success-overlay');
+        const labPanel = document.getElementById('section-lab');
+
+        function init() {
+            renderExercise();
+            renderVault();
+            renderDilemmas();
+            changeNode('lab');
+        }
+
+        // Função para baralhar arrays internamente se necessário
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function renderExercise() {
+            const ex = exercises[currentIdx];
+            labContent.innerHTML = '';
+            verifyBtn.classList.add('hide');
+            nextBtn.classList.add('hide');
+            undoHint.classList.add('opacity-0');
+            successOverlay.classList.add('hide');
+            labPanel.classList.remove('sync-active');
+            
+            selectedIndices = [];
+            selectedBug = null;
+            selectedChoice = null;
+
+            exCounter.innerText = `EXERCISE ${String(ex.id).padStart(2, '0')}/20`;
+            exModeText.innerText = `MODE: ${ex.type.toUpperCase()}`;
+            progressBar.style.width = `${(currentIdx / 20) * 100}%`;
+
+            let html = `<h2 class="text-2xl md:text-3xl font-bold mb-12 max-w-2xl mx-auto tech-font uppercase tracking-tight">${ex.q}</h2>`;
+
+            if(ex.type === 'link') {
+                html += `<div class="flex flex-wrap justify-center gap-8 w-full">`;
+                ex.nodes.forEach((group, gIdx) => {
+                    html += `<div class="flex flex-col gap-3">`;
+                    group.forEach((node, nIdx) => {
+                        html += `<div onclick="handleLink(${gIdx}, ${nIdx}, this)" class="link-node tech-font">${node}</div>`;
+                    });
+                    html += `</div>`;
+                });
+                html += `</div>`;
+            } else if(ex.type === 'hunt') {
+                html += `<div class="text-3xl font-bold tracking-wide leading-relaxed">`;
+                ex.sentence.forEach((word, i) => {
+                    html += `<span onclick="handleBug(${i}, this)" class="bug-word">${word}</span>`;
+                });
+                html += `</div>`;
+            } else if(ex.type === 'choice') {
+                html += `<div class="grid grid-cols-1 gap-4 w-full max-w-2xl mx-auto">`;
+                ex.options.forEach((opt, i) => {
+                    html += `<button onclick="handleChoice(${i}, this)" class="choice-btn tech-font">${opt}</button>`;
+                });
+                html += `</div>`;
+            }
+
+            labContent.innerHTML = html;
+        }
+
+        function handleLink(gIdx, nIdx, el) {
+            const groupEls = el.parentElement.querySelectorAll('.link-node');
+            groupEls.forEach(e => e.classList.remove('selected'));
+            el.classList.add('selected');
+            selectedIndices[gIdx] = nIdx;
+            undoHint.classList.remove('opacity-0');
+            if(selectedIndices.filter(x => x !== undefined).length === exercises[currentIdx].nodes.length) {
+                verifyBtn.classList.remove('hide');
+                verifyBtn.onclick = verifyLink;
+            }
+        }
+
+        function handleBug(i, el) {
+            if(selectedBug === i) {
+                selectedBug = null; el.classList.remove('selected');
+                verifyBtn.classList.add('hide'); undoHint.classList.add('opacity-0');
+            } else {
+                document.querySelectorAll('.bug-word').forEach(e => e.classList.remove('selected'));
+                el.classList.add('selected'); selectedBug = i;
+                verifyBtn.classList.remove('hide'); verifyBtn.onclick = verifyBug;
+                undoHint.classList.remove('opacity-0');
+            }
+        }
+
+        function handleChoice(i, el) {
+            if(selectedChoice === i) {
+                selectedChoice = null; el.classList.remove('selected');
+                verifyBtn.classList.add('hide'); undoHint.classList.add('opacity-0');
+            } else {
+                document.querySelectorAll('.choice-btn').forEach(e => e.classList.remove('selected'));
+                el.classList.add('selected'); selectedChoice = i;
+                verifyBtn.classList.remove('hide'); verifyBtn.onclick = verifyChoice;
+                undoHint.classList.remove('opacity-0');
+            }
+        }
+
+        function verifyLink() {
+            const ex = exercises[currentIdx];
+            const userSelection = selectedIndices.map((nIdx, gIdx) => ex.nodes[gIdx][nIdx]);
+            const isCorrect = userSelection.every(val => ex.a.includes(val));
+            finishExercise(isCorrect);
+        }
+
+        function verifyBug() { finishExercise(selectedBug === exercises[currentIdx].a); }
+        function verifyChoice() { finishExercise(selectedChoice === exercises[currentIdx].a); }
+
+        function finishExercise(isCorrect) {
+            verifyBtn.classList.add('hide'); undoHint.classList.add('opacity-0');
+            if(isCorrect) { triggerSuccess(); updateAccuracy(1); } 
+            else { labPanel.style.borderColor = "#ef4444"; setTimeout(() => labPanel.style.borderColor = "rgba(29, 185, 84, 0.2)", 1000); }
+            nextBtn.classList.remove('hide');
+        }
+
+        function triggerSuccess() {
+            labPanel.classList.add('sync-active');
+            successOverlay.classList.remove('hide');
+            setTimeout(() => labPanel.classList.remove('sync-active'), 600);
+        }
+
+        function updateAccuracy(pts) { score += pts; accuracyText.innerText = `${Math.round((score / 20) * 100)}%`; }
+
+        function nextExercise() {
+            currentIdx++;
+            if(currentIdx < exercises.length) renderExercise();
+            else finishLab();
+        }
+
+        function finishLab() {
+            labContent.innerHTML = `<div class="text-center py-10 fade-in"><h1 class="text-6xl font-black green-glow mb-4 tracking-tighter italic">ALGORITHM SYNCED</h1><p class="text-gray-400 mb-10 italic">Nodes analyzed. Passive Voice grammar successfully decoded.</p><button onclick="changeNode('dilemma')" class="bg-[#1DB954] text-black font-black py-5 px-14 rounded-full uppercase tracking-widest text-sm hover:scale-105 transition shadow-[0_0_30px_rgba(29,185,84,0.4)]">Access Dilemma Engine</button></div>`;
+            progressBar.style.width = "100%";
+        }
+
+        function renderDilemmas() {
+            const container = document.getElementById('dilemma-list');
+            dilemmas.forEach((d, i) => {
+                const div = document.createElement('div');
+                div.className = 'bg-white/5 border border-white/10 p-10 rounded-lg fade-in';
+                div.innerHTML = `<div class="flex items-center gap-4 mb-6"><span class="bg-[#1DB954] text-black tech-font font-bold px-3 py-1 text-xs">DILEMMA 0${i+1}</span><h3 class="text-xl font-black uppercase tracking-tight">${d.title}</h3></div><p class="text-lg text-gray-200 mb-8 leading-relaxed font-medium">${d.q}</p><div class="speaking-starter"><span class="text-[0.6rem] tech-font text-green-500 uppercase tracking-widest block mb-2">Speaking Starters:</span><ul class="text-sm text-gray-400 italic space-y-2">${d.starters.map(s => `<li>"> ${s}"</li>`).join('')}</ul></div>`;
+                container.appendChild(div);
+            });
+        }
+
+        function renderVault() {
+            const list = document.getElementById('vault-list');
+            vaultQuestions.forEach((v, i) => {
+                const item = document.createElement('div');
+                item.className = 'bg-white/5 border-l-2 border-[#1DB954] p-6 rounded-r-lg fade-in';
+                item.style.animationDelay = `${i * 0.1}s`;
+                item.innerHTML = `<p class="text-gray-200 font-bold mb-4 text-lg">${v.q}</p><p class="text-[0.6rem] tech-font text-[#1DB954] uppercase tracking-widest mb-2 italic">Starter Protocol:</p><p class="text-sm text-gray-400">"${v.s}"</p>`;
+                list.appendChild(item);
+            });
+        }
+
+        function changeNode(mode) {
+            document.getElementById('section-lab').classList.add('hide');
+            document.getElementById('section-dilemma').classList.add('hide');
+            document.getElementById('section-vault').classList.add('hide');
+            document.getElementById('tab-lab').classList.remove('border-[#1DB954]', 'text-[#1DB954]', 'bg-white/10');
+            document.getElementById('tab-dilemma').classList.remove('border-[#1DB954]', 'text-[#1DB954]', 'bg-white/10');
+            document.getElementById('tab-vault').classList.remove('border-[#1DB954]', 'text-[#1DB954]', 'bg-white/10');
+            document.getElementById(`section-${mode}`).classList.remove('hide');
+            document.getElementById(`tab-${mode}`).classList.add('border-[#1DB954]', 'text-[#1DB954]', 'bg-white/10');
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
